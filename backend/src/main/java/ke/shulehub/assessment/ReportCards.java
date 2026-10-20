@@ -144,16 +144,22 @@ public class ReportCards {
             List<AreaComment> areaComments) {
         Context context = context(learnerId, termId);
         StreamInfo stream = context.stream();
-        ReportCard card = context.card().orElseGet(() -> cards.save(
-                new ReportCard(stream.branchId(), learnerId, termId, stream.id())));
-        if (classTeacherComment != null || (areaComments != null && !areaComments.isEmpty())) {
+        // Check every permission before touching or creating the card: an empty request must not
+        // become a way to read unreleased results.
+        requireView(stream);
+        boolean teacherEdits = classTeacherComment != null || (areaComments != null && !areaComments.isEmpty());
+        if (teacherEdits) {
             access.require(Permission.ASSESSMENT_ENTER, stream.branchId(), stream.id());
         }
+        if (headComment != null) {
+            access.require(Permission.REPORTS_RELEASE, stream.branchId());
+        }
+        ReportCard card = context.card().orElseGet(() -> cards.save(
+                new ReportCard(stream.branchId(), learnerId, termId, stream.id())));
         if (classTeacherComment != null) {
             card.setClassTeacherComment(classTeacherComment);
         }
         if (headComment != null) {
-            access.require(Permission.REPORTS_RELEASE, stream.branchId());
             card.setHeadComment(headComment);
         }
         if (areaComments != null) {

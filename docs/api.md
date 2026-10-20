@@ -81,7 +81,7 @@ Paged responses:
 
 `POST /api/academic-years` `{ year, startDate, endDate, terms: [ { number, startDate, endDate } ] }` → academic year
 
-`GET /api/terms/current` → `{ id, academicYearId, year, number, startDate, endDate }` (404 if today is outside every term: the most recent past term is returned instead when one exists)
+`GET /api/terms/current` → `{ id, academicYearId, year, number, startDate, endDate }`: the term containing today; between terms, the most recent past term; before the first term, the next one. 404 only when no terms exist
 
 `GET /api/streams?branchId=&academicYearId=` → `[ { id, branchId, academicYearId, gradeLevel, name, capacity } ]`
 
@@ -121,7 +121,7 @@ Public enquiry (no token):
   "notes": "Interested in the January intake" }
 ```
 
-→ `201 { "reference": "ENQ-2026-0042" }`
+→ `201 { "reference": "APP-2026-0042" }`
 
 `ApplicationSummary`: `{ id, reference, branchId, learnerName, gradeLevel, status, guardianName, guardianPhone, source, createdAt }`
 

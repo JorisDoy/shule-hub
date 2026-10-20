@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import ke.shulehub.shared.tenancy.TenantContext;
 import ke.shulehub.tenancy.BranchDirectory;
 import ke.shulehub.tenancy.BranchInfo;
 
@@ -39,6 +40,7 @@ class BranchController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     BranchInfo create(@Valid @RequestBody CreateBranch request) {
+        TenantContext.require();
         return branches.create(request.name(), request.code(), request.county(), request.boardingEnabled());
     }
 }

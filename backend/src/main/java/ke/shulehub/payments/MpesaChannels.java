@@ -74,8 +74,13 @@ public class MpesaChannels {
         if (request.channelType() == MpesaChannelType.TILL && (request.partyB() == null || request.partyB().isBlank())) {
             throw new BadRequestException("For a till, give the till number customers pay to");
         }
+        // Flush the deactivation first: Hibernate runs inserts before updates, and the unique index
+        // allows only one active channel per shortcode.
         channels.findFirstByBranchIdAndActiveTrueOrderByCreatedAtDesc(request.branchId())
-                .ifPresent(MpesaChannel::deactivate);
+                .ifPresent(previous -> {
+                    previous.deactivate();
+                    channels.saveAndFlush(previous);
+                });
         byte[] token = new byte[24];
         RANDOM.nextBytes(token);
         MpesaChannel channel = new MpesaChannel(request.branchId(), shortcode,

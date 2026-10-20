@@ -69,6 +69,11 @@ class AssessmentIntegrationTests extends IntegrationTest {
                 .andExpect(jsonPath("$.areas[?(@.name == 'Mathematics')].points").value(7))
                 .andExpect(jsonPath("$.status").value("DRAFT"));
 
+        // A guardian can't use the staff endpoint to read unreleased results, even with an empty body.
+        mvc.perform(putAs(parentEmail, school.tenantId(), "{}", "/api/assessment/report-cards/{l}/{t}",
+                        amani.learnerId(), termId))
+                .andExpect(status().isForbidden());
+
         mvc.perform(putAs(teacher, school.tenantId(), json("""
                 {'classTeacherComment':'A focused term.','areaComments':[{'learningAreaId':'%s','comment':'Strong algebra'}]}
                 """.formatted(maths)), "/api/assessment/report-cards/{l}/{t}", amani.learnerId(), termId))

@@ -39,6 +39,7 @@ import ke.shulehub.shared.money.Money;
 import ke.shulehub.shared.persistence.SequenceService;
 import ke.shulehub.shared.web.BadRequestException;
 import ke.shulehub.shared.web.NotFoundException;
+import ke.shulehub.tenancy.BranchDirectory;
 
 /**
  * The money ledger: records payments exactly once, applies them to invoices, and reports
@@ -61,16 +62,19 @@ public class Ledger {
     private final InvoiceRepository invoices;
     private final LearnerDirectory learners;
     private final SequenceService locks;
+    private final BranchDirectory branches;
     private final AccessPolicy access;
     private final Clock clock;
 
     public Ledger(PaymentRepository payments, PaymentAllocationRepository allocations, InvoiceRepository invoices,
-            LearnerDirectory learners, SequenceService locks, AccessPolicy access, Clock clock) {
+            LearnerDirectory learners, SequenceService locks, BranchDirectory branches, AccessPolicy access,
+            Clock clock) {
         this.payments = payments;
         this.allocations = allocations;
         this.invoices = invoices;
         this.learners = learners;
         this.locks = locks;
+        this.branches = branches;
         this.access = access;
         this.clock = clock;
     }
@@ -144,18 +148,15 @@ public class Ledger {
 
     @Transactional(readOnly = true)
     public List<PaymentView> list(UUID branchId, PaymentStatus status, UUID learnerId) {
+        branches.require(branchId);
         access.require(Permission.FEES_VIEW, branchId);
-        List<Payment> found;
-        if (learnerId != null) {
-            found = payments.findByLearnerIdOrderByReceivedAtAsc(learnerId).reversed().stream()
-                    .filter(payment -> payment.getBranchId().equals(branchId))
-                    .toList();
-        }
-        else if (status != null) {
-            found = payments.findByBranchIdAndStatusOrderByReceivedAtDesc(branchId, status);
-        }
-        else {
-            found = payments.findByBranchIdOrderByReceivedAtDesc(branchId);
+        List<Payment> found = learnerId != null
+                ? payments.findByLearnerIdOrderByReceivedAtAsc(learnerId).reversed().stream()
+                        .filter(payment -> payment.getBranchId().equals(branchId))
+                        .toList()
+                : payments.findByBranchIdOrderByReceivedAtDesc(branchId);
+        if (status != null) {
+            found = found.stream().filter(payment -> payment.getStatus() == status).toList();
         }
         Map<UUID, LearnerSummary> names = learners.findAll(found.stream()
                 .map(Payment::getLearnerId).filter(Objects::nonNull).distinct().toList());

@@ -74,7 +74,8 @@ public class MobileMoneyCallbacks {
     public Daraja.CallbackAck stkResult(String callbackToken, String rawBody) {
         UUID logId = callbackLog.record("STK", callbackToken, rawBody);
         ChannelRef channel = channel(callbackToken);
-        Daraja.StkCallback callback = parse(rawBody, Daraja.StkCallbackEnvelope.class).body().stkCallback();
+        Daraja.StkCallbackEnvelope envelope = parse(rawBody, Daraja.StkCallbackEnvelope.class);
+        Daraja.StkCallback callback = envelope.body() == null ? null : envelope.body().stkCallback();
         if (callback == null || callback.checkoutRequestId() == null) {
             throw new BadRequestException("Not an STK callback");
         }
@@ -114,7 +115,7 @@ public class MobileMoneyCallbacks {
         ChannelRef channel = channel(callbackToken);
         Daraja.C2bPayload payload = parse(rawBody, Daraja.C2bPayload.class);
         boolean known = TenantContext.callAs(channel.tenantId(),
-                () -> learners.findByAdmissionNumber(payload.billRefNumber()).isPresent());
+                () -> learnerInBranch(payload.billRefNumber(), channel.branchId()).isPresent());
         boolean accept = known || !properties.mpesa().rejectUnknownAccounts();
         callbackLog.outcome(logId, channel.tenantId(), accept ? "ACCEPTED" : "REJECTED_UNKNOWN_ACCOUNT");
         return accept ? Daraja.C2bResponse.accept() : Daraja.C2bResponse.rejectInvalidAccount();
@@ -129,7 +130,7 @@ public class MobileMoneyCallbacks {
             throw new BadRequestException("Not a C2B confirmation");
         }
         String outcome = TenantContext.callAs(channel.tenantId(), () -> transactions.execute(status -> {
-            Optional<LearnerSummary> learner = learners.findByAdmissionNumber(payload.billRefNumber());
+            Optional<LearnerSummary> learner = learnerInBranch(payload.billRefNumber(), channel.branchId());
             events.publishEvent(new MpesaPaymentReceived(channel.tenantId(), channel.branchId(),
                     MpesaPaymentReceived.Source.C2B, payload.transId(), Money.of(payload.transAmount()),
                     payload.msisdn(), payload.payerName(), payload.billRefNumber(),
@@ -139,6 +140,12 @@ public class MobileMoneyCallbacks {
         }));
         callbackLog.outcome(logId, channel.tenantId(), outcome);
         return new Daraja.C2bResponse("0", "Success");
+    }
+
+    /** A learner matches only within the branch that owns the paybill; anything else goes to suspense. */
+    private Optional<LearnerSummary> learnerInBranch(String accountReference, UUID branchId) {
+        return learners.findByAdmissionNumber(accountReference)
+                .filter(learner -> learner.branchId().equals(branchId));
     }
 
     private ChannelRef channel(String callbackToken) {

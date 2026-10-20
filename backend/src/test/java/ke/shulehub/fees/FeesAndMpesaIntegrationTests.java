@@ -229,6 +229,61 @@ class FeesAndMpesaIntegrationTests extends IntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void aBranchCanReAddItsPaybillToRotateCredentials() throws Exception {
+        Setup s = setUpSchoolWithInvoices();
+        mvc.perform(postAs(s.bursar(), s.school().tenantId(), json("""
+                {'branchId':'%s','shortcode':'174379','channelType':'PAYBILL','environment':'SANDBOX',
+                 'consumerKey':'key-2','consumerSecret':'secret-2','passkey':'passkey-2'}
+                """.formatted(s.school().branchId())), "/api/payments/mpesa/channels"))
+                .andExpect(status().isCreated());
+        String channels = body(mvc.perform(getAs(s.bursar(), s.school().tenantId(), "/api/payments/mpesa/channels")));
+        List<Boolean> active = read(channels, "$[*].active");
+        assertThat(active).containsExactlyInAnyOrder(true, false);
+    }
+
+    @Test
+    void paybillPaymentForALearnerInAnotherBranchIsNotMatched() throws Exception {
+        Setup s = setUpSchoolWithInvoices();
+        String otherBranch = body(mvc.perform(postAs(s.school().director().email(), s.school().tenantId(), json(
+                        "{'name':'Limuru Campus','code':'LIM','county':'Kiambu','boardingEnabled':false}"), "/api/branches"))
+                .andExpect(status().isCreated()));
+        java.util.UUID otherBranchId = java.util.UUID.fromString(read(otherBranch, "$.id"));
+        StreamInfo limuruStream = asDirector(s.school(), () -> streams.create(otherBranchId, s.school().year().id(),
+                GradeLevel.GRADE_7, "Grade 7 Limuru", 40));
+        Learners.Admitted elsewhere = asDirector(s.school(), () -> learners.admit(new Learners.AdmitCommand(otherBranchId,
+                limuruStream.id(), "Jabali", "Mohamed", null, null, null, GradeLevel.GRADE_7, BoardingStatus.DAY,
+                new Learners.GuardianDetails("Amina", "Mohamed", uniquePhone(), null,
+                        ke.shulehub.learners.Relationship.MOTHER))));
+        String payload = """
+                {"TransactionType":"Pay Bill","TransID":"TJK5BBB333","TransTime":"20261020101010","TransAmount":"2500.00",
+                 "BusinessShortCode":"174379","BillRefNumber":"%s","MSISDN":"254722222222","FirstName":"AMINA"}
+                """.formatted(elsewhere.admissionNumber());
+
+        // Main campus's paybill doesn't know Limuru's learners.
+        mvc.perform(post("/api/callbacks/mobile-money/{token}/c2b/validation", s.callbackToken())
+                        .contentType(MediaType.APPLICATION_JSON).content(payload))
+                .andExpect(jsonPath("$.ResultCode").value("C2B00012"));
+        mvc.perform(post("/api/callbacks/mobile-money/{token}/c2b/confirmation", s.callbackToken())
+                        .contentType(MediaType.APPLICATION_JSON).content(payload))
+                .andExpect(status().isOk());
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+                mvc.perform(getAs(s.bursar(), s.school().tenantId(), "/api/fees/payments?branchId={b}&status=SUSPENSE",
+                                s.school().branchId()))
+                        .andExpect(jsonPath("$[0].reference").value("TJK5BBB333")));
+    }
+
+    @Test
+    void malformedCallbacksAreRejectedCleanly() throws Exception {
+        Setup s = setUpSchoolWithInvoices();
+        mvc.perform(post("/api/callbacks/mobile-money/{token}/stk", s.callbackToken())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"unexpected\":true}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/api/callbacks/mobile-money/{token}/stk", "not-a-real-token")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isNotFound());
+    }
+
     private String jdbcCheckoutId(String intentId) {
         return context.getBean(org.springframework.jdbc.core.JdbcTemplate.class).queryForObject(
                 "select checkout_request_id from payment_intent where id = ?::uuid", String.class, intentId);

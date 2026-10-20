@@ -8,6 +8,10 @@ spring:
     url: ${SHULEHUB_DB_URL:jdbc:postgresql://localhost:5432/shulehub}
     username: ${SHULEHUB_DB_USER:shulehub}
     password: ${SHULEHUB_DB_PASSWORD:shulehub}
+  jackson:
+    deserialization:
+      # Jackson 3 rejects a missing boolean/int field by default; treat it as false/0 instead.
+      fail-on-null-for-primitives: false
   jpa:
     open-in-view: false
     hibernate:

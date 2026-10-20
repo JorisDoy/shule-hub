@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -38,11 +39,12 @@ class AssessmentController {
 
     record CreateAssessment(@NotBlank @Size(max = 120) String title, @NotNull AssessmentType type,
             @NotNull UUID termId, @NotNull UUID streamId, @NotNull UUID learningAreaId,
-            @DecimalMin("0.01") BigDecimal maxScore, @DecimalMin("0.01") BigDecimal weight,
+            @DecimalMin("0.01") @DecimalMax("1000") BigDecimal maxScore,
+            @DecimalMin("0.01") @DecimalMax("100") BigDecimal weight,
             @NotNull LocalDate assessedOn) {
     }
 
-    record ScoreRequest(@NotNull UUID learnerId, @DecimalMin("0") BigDecimal rawScore, @Size(max = 10) String rubricLevel,
+    record ScoreRequest(@NotNull UUID learnerId, @DecimalMin("0") @DecimalMax("1000") BigDecimal rawScore, @Size(max = 10) String rubricLevel,
             @Size(max = 500) String comment) {
     }
 

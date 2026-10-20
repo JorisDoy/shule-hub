@@ -27,7 +27,7 @@ class AdmissionsFlowIntegrationTests extends IntegrationTest {
         String parentEmail = "neema.parent-" + school.slug() + "@example.test";
 
         String enquiry = json("""
-                {'branchCode':'main','gradeLevel':'PP1','boardingRequested':false,
+                {'branchCode':'main','gradeLevel':'PP1',
                  'learner':{'givenName':'Neema','familyName':'Wanjiru','dateOfBirth':'2022-03-14','gender':'FEMALE'},
                  'guardian':{'givenName':'Grace','familyName':'Wanjiru','phone':'%s','email':'%s','relationship':'MOTHER'},
                  'notes':'January intake'}

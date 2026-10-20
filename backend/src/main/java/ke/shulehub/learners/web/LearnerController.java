@@ -3,6 +3,7 @@ package ke.shulehub.learners.web;
 import java.util.List;
 import java.util.UUID;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 
 import org.springframework.web.bind.annotation.GetMapping;
@@ -53,7 +54,7 @@ class LearnerController {
     }
 
     @PatchMapping("/api/learners/{id}")
-    LearnerDetail update(@PathVariable UUID id, @RequestBody UpdateLearner request) {
+    LearnerDetail update(@PathVariable UUID id, @Valid @RequestBody UpdateLearner request) {
         TenantContext.require();
         return learners.update(id, request.upi(), request.assessmentNumber(), request.boardingStatus());
     }
