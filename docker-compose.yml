@@ -1,0 +1,36 @@
+# Local development services. Run the backend and frontend on your machine against these.
+#   docker compose up -d
+# Postgres: localhost:5432 (shulehub / shulehub)
+# Keycloak: http://localhost:8180 (admin / admin), realm "shulehub" with demo users
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: shulehub
+      POSTGRES_USER: shulehub
+      POSTGRES_PASSWORD: shulehub
+      TZ: UTC
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shulehub -d shulehub"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.1
+    command: ["start-dev", "--import-realm", "--http-port=8180"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: http://localhost:8180
+    ports:
+      - "8180:8180"
+    volumes:
+      - ./infra/keycloak:/opt/keycloak/data/import:ro
+
+volumes:
+  postgres-data:

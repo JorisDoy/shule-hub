@@ -1,0 +1,13 @@
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Tests sign requests with MockMvc's jwt() helper, so no Keycloak is contacted.
+          jwk-set-uri: http://localhost:65535/realms/test/protocol/openid-connect/certs
+shulehub:
+  mpesa:
+    callback-base-url: https://callbacks.test.shulehub.example
+logging:
+  level:
+    ke.shulehub: INFO

@@ -1,0 +1,63 @@
+spring:
+  application:
+    name: shule-hub
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${SHULEHUB_DB_URL:jdbc:postgresql://localhost:5432/shulehub}
+    username: ${SHULEHUB_DB_USER:shulehub}
+    password: ${SHULEHUB_DB_PASSWORD:shulehub}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        # Discriminator multi-tenancy: adds "tenant_id = ?" to every query on @TenantId entities.
+        tenant_identifier_resolver: ke.shulehub.shared.tenancy.TenantIdentifierResolver
+        jdbc:
+          time_zone: UTC
+  flyway:
+    locations: classpath:db/migration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${SHULEHUB_ISSUER_URI:http://localhost:8180/realms/shulehub}
+  modulith:
+    events:
+      # Outbox behaviour: re-deliver events whose listeners did not complete before a restart.
+      republish-outstanding-events-on-restart: true
+
+server:
+  forward-headers-strategy: framework
+  error:
+    include-message: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+shulehub:
+  # Base64 AES-256 key for stored M-Pesa credentials. This default is for local development only:
+  # generate your own with `openssl rand -base64 32` and set SHULEHUB_CREDENTIALS_KEY everywhere else.
+  credentials-key: ${SHULEHUB_CREDENTIALS_KEY:ZGV2LW9ubHktc2h1bGVodWIta2V5LWNoYW5nZS1tZSE=}
+  cors:
+    allowed-origins: ${SHULEHUB_CORS_ORIGINS:http://localhost:3000}
+  mpesa:
+    # Public HTTPS address Safaricom can reach (for local testing use a tunnel such as ngrok).
+    callback-base-url: ${SHULEHUB_PUBLIC_BASE_URL:http://localhost:8080}
+    reject-unknown-accounts: true
+  demo:
+    enabled: ${SHULEHUB_DEMO_ENABLED:false}
