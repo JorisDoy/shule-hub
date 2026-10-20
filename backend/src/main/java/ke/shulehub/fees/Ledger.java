@@ -159,7 +159,10 @@ public class Ledger {
         }
         Map<UUID, LearnerSummary> names = learners.findAll(found.stream()
                 .map(Payment::getLearnerId).filter(Objects::nonNull).distinct().toList());
-        return found.stream().map(payment -> view(payment, names.get(payment.getLearnerId()))).toList();
+        // Unmatched payments have no learner; immutable maps reject get(null).
+        return found.stream()
+                .map(payment -> view(payment, payment.getLearnerId() == null ? null : names.get(payment.getLearnerId())))
+                .toList();
     }
 
     /** Statement for staff with fees access. */
