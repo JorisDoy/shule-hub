@@ -16,20 +16,27 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
           cache: maven
       - name: Build and test (Testcontainers uses the runner's Docker)
-        run: mvn -B -ntp verify
-      - name: Upload test reports
+        run: |
+          set -o pipefail
+          mvn -B -ntp verify 2>&1 | tee build.log
+      - name: Report build errors as annotations
+        if: failure()
+        run: python3 ../.github/scripts/maven-annotations.py build.log
+      - name: Upload build log and test reports
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: surefire-reports
-          path: backend/target/surefire-reports
+          name: backend-build
+          path: |
+            backend/build.log
+            backend/target/surefire-reports
 
   frontend:
     name: Frontend (Node 22)
@@ -38,8 +45,8 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
